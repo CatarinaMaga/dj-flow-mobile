@@ -23,15 +23,21 @@ app.get('/search', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Consulta vazia' });
 
-    console.log(`🔍 Pesquisando: ${query}`);
+    console.log(`🔍 Pesquisando: "${query}"...`);
     
     try {
-        // Pesquisa os 5 melhores resultados no YouTube
+        // Opções robustas para evitar bloqueios em servidores (Render)
         const results = await youtubedl(`ytsearch5:${query}`, {
             dumpJson: true,
-            flatPlaylist: true,
-            noWarnings: true
+            noWarnings: true,
+            noCheckCertificates: true,
+            geoBypass: true,
+            // Force ipv4 para evitar problemas de proxy/ipv6 em datacenters
+            forceIpv4: true
         });
+
+        // Log para depuração na aba 'Logs' do Render (Caso venha vazio)
+        console.log(`Resultados encontrados: ${results.entries ? results.entries.length : 0}`);
 
         const formattedResults = (results.entries || []).map(entry => ({
             id: entry.id,
@@ -43,8 +49,8 @@ app.get('/search', async (req, res) => {
 
         res.json({ success: true, results: formattedResults });
     } catch (err) {
-        console.error('Erro na busca:', err);
-        res.status(500).json({ error: 'Erro ao realizar pesquisa.' });
+        console.error('ERRO CRÍTICO NA BUSCA:', err.message);
+        res.status(500).json({ error: 'Erro ao realizar pesquisa no YouTube.' });
     }
 });
 
