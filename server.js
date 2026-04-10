@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const youtubedl = require('youtube-dl-exec');
+const searchApi = require('youtube-search-api');
 const path = require('path');
 
 const app = express();
@@ -23,34 +24,31 @@ app.get('/search', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.status(400).json({ error: 'Consulta vazia' });
 
-    console.log(`🔍 Pesquisando: "${query}"...`);
+    console.log(`🔍 Pesquisando via API Leve: "${query}"...`);
     
     try {
-        // Opções robustas para evitar bloqueios em servidores (Render)
-        const results = await youtubedl(`ytsearch5:${query}`, {
-            dumpJson: true,
-            noWarnings: true,
-            noCheckCertificates: true,
-            geoBypass: true,
-            // Force ipv4 para evitar problemas de proxy/ipv6 em datacenters
-            forceIpv4: true
+        // Usando a API leve para busca de texto no YouTube
+        const results = await searchApi.GetListByKeyword(query, false, 5);
+        
+        console.log(`Resultados via API: ${results.items ? results.items.length : 0}`);
+
+        const formattedResults = (results.items || []).map(entry => {
+            // Converter duração de segundos para MM:SS se for número
+            let durationStr = entry.lengthText || 'N/A';
+            
+            return {
+                id: entry.id,
+                title: entry.title,
+                duration: durationStr,
+                thumbnail: entry.thumbnail?.thumbnails?.[0]?.url || '',
+                url: `https://www.youtube.com/watch?v=${entry.id}`
+            };
         });
-
-        // Log para depuração na aba 'Logs' do Render (Caso venha vazio)
-        console.log(`Resultados encontrados: ${results.entries ? results.entries.length : 0}`);
-
-        const formattedResults = (results.entries || []).map(entry => ({
-            id: entry.id,
-            title: entry.title,
-            duration: entry.duration_string || 'N/A',
-            thumbnail: entry.thumbnails?.[1]?.url || entry.thumbnail || '',
-            url: `https://www.youtube.com/watch?v=${entry.id}`
-        }));
 
         res.json({ success: true, results: formattedResults });
     } catch (err) {
-        console.error('ERRO CRÍTICO NA BUSCA:', err.message);
-        res.status(500).json({ error: 'Erro ao realizar pesquisa no YouTube.' });
+        console.error('ERRO CRÍTICO NA BUSCA API:', err.message);
+        res.status(500).json({ error: 'Erro ao realizar pesquisa no YouTube Cloud.' });
     }
 });
 
