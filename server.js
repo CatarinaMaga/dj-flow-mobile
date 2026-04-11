@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const youtubedl = require('youtube-dl-exec');
 const searchApi = require('youtube-search-api');
+const ytdl = require('@distube/ytdl-core');
 const path = require('path');
 
 const app = express();
@@ -53,66 +54,50 @@ app.get('/search', async (req, res) => {
 });
 
 // 2. ROTA DE STREAM (Ouvir)
-app.get('/stream', (req, res) => {
+app.get('/stream', async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) return res.status(400).send('URL faltando');
 
-    console.log(`🎧 Streaming: ${videoUrl}`);
+    console.log(`🎧 Streaming (Filtro Leve): ${videoUrl}`);
 
     try {
-        // Garantir que o binário de ffmpeg (se baixado pelo script) esteja no PATH
-        process.env.PATH = `${process.env.PATH}:${path.join(__dirname, 'bin')}`;
-
-        const subprocess = youtubedl.exec(videoUrl, {
-            output: '-',
-            format: 'bestaudio[ext=m4a]',
-            noWarnings: true,
-            noCheckCertificates: true,
-            geoBypass: true
+        // Usando ytdl-core para stream direto (muito mais estável em servidores)
+        const stream = ytdl(videoUrl, {
+            filter: 'audioonly',
+            quality: 'highestaudio',
+            highWaterMark: 1 << 25 // Buffer de 32MB para evitar engasgos
         });
 
-        // IMPORTANTE: Para m4a no iPhone/Android, o Content-Type correto é audio/mp4
         res.header('Content-Type', 'audio/mp4');
-        subprocess.stdout.pipe(res);
+        stream.pipe(res);
 
-        subprocess.on('error', (err) => {
-            console.error('Erro no stream yt-dlp:', err);
-        });
-        
-        req.on('close', () => {
-            subprocess.kill();
+        stream.on('error', (err) => {
+            console.error('Erro no stream ytdl:', err.message);
         });
 
     } catch (err) {
         console.error('Erro ao processar stream:', err);
-        res.status(500).send('Erro no servidor');
+        res.status(500).send('Erro no servidor de áudio');
     }
 });
 
 // 3. ROTA DE DOWNLOAD (Baixar)
-app.get('/download', (req, res) => {
+app.get('/download', async (req, res) => {
     const videoUrl = req.query.url;
     const title = req.query.title || 'audio';
     
     if (!videoUrl) return res.status(400).send('URL faltando');
 
-    console.log(`⬇ Baixando: ${videoUrl}`);
+    console.log(`⬇ Baixando (Filtro Leve): ${videoUrl}`);
 
     try {
         res.header('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.m4a"`);
         res.header('Content-Type', 'audio/mp4');
 
-        const subprocess = youtubedl.exec(videoUrl, {
-            output: '-',
-            format: 'bestaudio[ext=m4a]',
-            noWarnings: true
-        });
-
-        subprocess.stdout.pipe(res);
-
-        subprocess.on('error', (err) => {
-            console.error('Erro no download:', err);
-        });
+        ytdl(videoUrl, {
+            filter: 'audioonly',
+            quality: 'highestaudio'
+        }).pipe(res);
 
     } catch (err) {
         console.error('Erro ao processar download:', err);
