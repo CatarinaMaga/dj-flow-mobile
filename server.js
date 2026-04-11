@@ -123,7 +123,3 @@ app.get('/download', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 DJ Flow Mobile Engine ON: porta ${PORT}`);
 });
-
-app.listen(PORT, () => {
-    console.log(`🚀 DJ Flow Mobile Engine ON: porta ${PORT}`);
-});
