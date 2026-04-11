@@ -11,11 +11,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Singleton para o YouTubei
+// Singleton para o YouTubei (Camuflado como Android)
 let youtube;
 async function getYouTube() {
     if (!youtube) {
-        youtube = await Innertube.create();
+        youtube = await Innertube.create({
+            client: 'ANDROID',
+            device_category: 'mobile'
+        });
     }
     return youtube;
 }
