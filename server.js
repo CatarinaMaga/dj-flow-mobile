@@ -52,7 +52,7 @@ app.get('/search', async (req, res) => {
     }
 });
 
-// 2. ROTA DE STREAM (Ouviar)
+// 2. ROTA DE STREAM (Ouvir)
 app.get('/stream', (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) return res.status(400).send('URL faltando');
@@ -60,17 +60,23 @@ app.get('/stream', (req, res) => {
     console.log(`🎧 Streaming: ${videoUrl}`);
 
     try {
+        // Garantir que o binário de ffmpeg (se baixado pelo script) esteja no PATH
+        process.env.PATH = `${process.env.PATH}:${path.join(__dirname, 'bin')}`;
+
         const subprocess = youtubedl.exec(videoUrl, {
             output: '-',
-            format: 'bestaudio',
-            noWarnings: true
+            format: 'bestaudio[ext=m4a]',
+            noWarnings: true,
+            noCheckCertificates: true,
+            geoBypass: true
         });
 
-        res.header('Content-Type', 'audio/mpeg');
+        // IMPORTANTE: Para m4a no iPhone/Android, o Content-Type correto é audio/mp4
+        res.header('Content-Type', 'audio/mp4');
         subprocess.stdout.pipe(res);
 
         subprocess.on('error', (err) => {
-            console.error('Erro no stream:', err);
+            console.error('Erro no stream yt-dlp:', err);
         });
         
         req.on('close', () => {
